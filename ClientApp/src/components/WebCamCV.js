@@ -6,7 +6,7 @@ import Sidebar from 'react-sidebar';
 import {
     Button, ButtonGroup,
     Navbar, NavbarBrand, NavbarToggler, Collapse, Nav, NavItem, NavLink,
-    Container
+    Container, Spinner
 } from 'reactstrap';
 import Switch from 'react-switch';
 
@@ -16,7 +16,7 @@ const endpointRegion = 'westus2';
 let makeblob = function (dataURL) {
     console.log(dataURL)
     var BASE64_MARKER = ';base64,';
-    if (dataURL.indexOf(BASE64_MARKER) == -1) {
+    if (dataURL.indexOf(BASE64_MARKER) === -1) {
         var parts = dataURL.split(',');
         var contentType = parts[0].split(':')[1];
         var raw = decodeURIComponent(parts[1]);
@@ -65,6 +65,11 @@ function NavBar(props) {
 }
 
 function Demo(props) {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const [predictions, setPredictions] = useState([]);
+
+
     return (
         <div>
             <div class="row">
@@ -76,24 +81,13 @@ function Demo(props) {
                             className="mb-4"
                             onClick={(e) => {
                                 console.log(e.target);
-                                let img = e.target;
-
-                                let canvas = document.createElement('canvas');
-
-                                canvas.width = img.clientWidth;
-                                canvas.height = img.clientHeight;
-
-                                let context = canvas.getContext('2d');
-
-                                // copy image to it (this method allows to cut image)
-                                context.drawImage(img, 0, 0);
-                                // we can context.rotate(), and do many other things on canvas
-
-                                // toBlob is async opereation, callback is called when done
-                                canvas.toBlob(function (blob) {
-                                    console.log(blob);
-                                    
-                                    
+                                setIsLoading(true);
+                                console.log(predictions);
+                                
+                                fetch(e.target.src)
+                                    .then(res => res.blob())
+                                    .then(imageBlob => {
+                                        // use blob...
                                 fetch('https://' + endpointRegion + '.api.cognitive.microsoft.com/customvision/v3.0/Prediction/ebb75a93-8268-4ab1-98d9-5a2e8cda38c1/detect/iterations/Iteration2/image', {
                                     method: 'POST',
                                     headers: {
@@ -101,36 +95,46 @@ function Demo(props) {
                                         'Content-Type': 'application/octet-stream',
                                     },
 
-                                    body: blob,
+                                    body: imageBlob,
 
                                 }).then(response => response.json())
                                     .then(data => {
-                                        /*
-                                        var t1 = performance.now();
-                                        this.setState({ objects: data.predictions, fetchTime: (t1 - t0).toFixed(3) });
+                                        console.log(data);
+                                        setIsLoading(false);
+                                        setPredictions(data.predictions.sort((a, b) => b.probability - a.probability));
 
-                                        if (data.predictions && data.predictions.length >= 1) {
-                                            var predictions = data.predictions;
-                                            predictions.sort((a, b) => b.probability - a.probability);
+                                            /*
+                                            var t1 = performance.now();
+                                            this.setState({ objects: data.predictions, fetchTime: (t1 - t0).toFixed(3) });
 
-                                            var topPrediction = predictions[0];
+                                            if (data.predictions && data.predictions.length >= 1) {
+                                                var predictions = data.predictions;
+                                                predictions.sort((a, b) => b.probability - a.probability);
 
-                                            var selectedLetter = topPrediction.probability > 0.1 ? topPrediction.tagName : "No Key Pressed"
+                                                var topPrediction = predictions[0];
+
+                                                var selectedLetter = topPrediction.probability > 0.1 ? topPrediction.tagName : "No Key Pressed"
 
 
                                            
-                                            this.setState({ caption: selectedLetter });
-                                            this.setState({ captionConfidence: topPrediction.probability.toFixed(3) });
-                                            // this.setState({ tags: data.description.tags });
-                                        }
-                                        */ console.log(data)
-                                    })
-                                }, 'image/png');
-        
+                                                this.setState({ caption: selectedLetter });
+                                                this.setState({ captionConfidence: topPrediction.probability.toFixed(3) });
+                                                // this.setState({ tags: data.description.tags });
+                                            }
+                                            */ console.log(data);
+                                        
+                                    });
+                                    });
+                                 
                             }}
                         // onmouseover="changeImage('./1-p-tagged.jpg', '1')"
                         // onmouseout="changeImage('./1-p-boxed.jpg', 1)"
                         /></div>)}
+            </div>
+            <div className="d-flex justify-content-center">
+                {isLoading ? <Spinner color="secondary" /> : <div>{predictions.map(item => {
+                    return (<div><strong>{item.tagName}</strong>: {parseFloat(item.probability) * 100}%</div>);
+            })}</div>}
             </div>
         </div>
         )
@@ -181,7 +185,7 @@ export class WebCamCV extends Component {
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        var img = new Image;
+        var img = new Image();
         let objects = this.state.objects;
 
         img.onload = function () {
@@ -252,7 +256,7 @@ export class WebCamCV extends Component {
                     if (selectedLetter === "P") {
                         var letters = ["P", "P", "P", "P", "P", "P", "P", "P", "P", "O", "O", "O", "O", "O", "O", "O", "O", "O", "L", "K", "K", "U", "U"];
                         selectedLetter = letters[Math.floor(Math.random() * letters.length)]
-                    } else if (selectedLetter==="S") {
+                    } else if (selectedLetter === "S") {
                         var letters = ["S", "S", "S", "A", "A", "A", "W", "W", "W", "D", "Z", "X", "C", "Q"];
                         selectedLetter = letters[Math.floor(Math.random() * letters.length)]
                     }
